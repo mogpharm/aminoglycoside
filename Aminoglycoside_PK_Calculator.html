@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aminoglycoside PK Calculator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #2c3e50; font-size: 14px; }
+    .page { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    h1 { color: #1a3a5c; font-size: 1.5rem; text-align: center; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #7f8c9a; font-size: 0.78rem; margin-bottom: 20px; }
+
+    .card { background: #fff; border-radius: 10px; padding: 18px 20px; margin-bottom: 14px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.07); }
+    .card-title { font-size: 0.92rem; font-weight: 700; color: #1a3a5c; margin-bottom: 14px;
+                  border-bottom: 2px solid #e8f0fe; padding-bottom: 7px; display: flex;
+                  align-items: center; justify-content: space-between; }
+    .toggle-link { font-size: 0.75rem; font-weight: 400; color: #3a7bd5; cursor: pointer; user-select: none; }
+    .toggle-link:hover { text-decoration: underline; }
+
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .g4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+
+    label { display: block; font-size: 0.74rem; font-weight: 600; color: #5a6a7a; margin-bottom: 3px; }
+    input[type=number], input[type=text], input[type=datetime-local], select {
+      width: 100%; padding: 7px 9px; border: 1px solid #ccd6e8; border-radius: 6px;
+      font-size: 0.88rem; background: #fafdff; color: #2c3e50; transition: border-color .15s;
+    }
+    input:focus, select:focus { outline: none; border-color: #3a7bd5; background: #fff; }
+    input[type=datetime-local] { padding: 6px 9px; }
+    input[type=checkbox] { width: auto; margin-right: 4px; cursor: pointer; }
+
+    .helper { font-size: 0.70rem; color: #9aabb8; margin-top: 3px; }
+
+    .pk-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;
+              background: #f0f6ff; border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .pk-cell { text-align: center; }
+    .pk-val { font-size: 1.05rem; font-weight: 700; color: #1a3a5c; }
+    .pk-lbl { font-size: 0.65rem; color: #7a8a9a; margin-top: 2px; line-height: 1.3; }
+
+    /* Target banner */
+    .target-bar { display:grid; grid-template-columns: repeat(3,1fr); gap:8px;
+                  background:#eef7f0; border:1px solid #bfe0c8; border-radius:8px;
+                  padding:10px 12px; margin-top:12px; }
+    .target-cell { text-align:center; }
+    .target-val { font-size:1.0rem; font-weight:700; color:#1a5c30; }
+    .target-lbl { font-size:0.64rem; color:#5a7a64; margin-top:2px; line-height:1.3; }
+    /* Editable target goals */
+    .target-edit { display:grid; grid-template-columns: 1fr 1fr 1fr 1.1fr; gap:10px;
+                   background:#eef7f0; border:1px solid #bfe0c8; border-radius:8px;
+                   padding:12px; margin-top:12px; align-items:end; }
+    .target-edit label { color:#3c6b48; font-size:0.70rem; }
+    .target-edit input { background:#fff; border-color:#bfe0c8; }
+    .target-edit input:focus { border-color:#2e9e58; }
+    .target-edit .tgt-static { font-size:0.78rem; color:#1a5c30; }
+    .target-edit .tgt-static b { font-size:1.0rem; }
+    .tgt-reset-row { display:flex; justify-content:space-between; align-items:center;
+                     gap:10px; margin-top:6px; flex-wrap:wrap; }
+
+    /* Sub-tabs */
+    .sub-tabs { display: flex; gap: 0; border: 1px solid #b8c8e0; border-radius: 6px;
+                overflow: hidden; margin-bottom: 14px; }
+    .sub-tab { flex: 1; text-align: center; padding: 8px 10px; cursor: pointer; font-size: 0.80rem;
+               font-weight: 600; color: #5a6a7a; background: #f8fafc; transition: all .15s;
+               border-right: 1px solid #b8c8e0; user-select: none; line-height: 1.3; }
+    .sub-tab:last-child { border-right: none; }
+    .sub-tab.active { background: #1a3a5c; color: #fff; }
+    .sub-tab:hover:not(.active) { background: #e4edf8; }
+    .sub-panel { display: none; }
+    .sub-panel.active { display: block; }
+
+    /* Dose rows */
+    .dose-row { display: grid; grid-template-columns: 1fr 140px 130px 36px; gap: 8px;
+                align-items: end; margin-bottom: 8px; }
+    .dose-row label { font-size: 0.70rem; }
+
+    /* Buttons */
+    .btn { padding: 8px 20px; border: none; border-radius: 6px; cursor: pointer;
+           font-size: 0.85rem; font-weight: 600; }
+    .btn-primary { background: #1a3a5c; color: #fff; }
+    .btn-primary:hover { background: #22507a; }
+    .btn-sm { padding: 5px 12px; font-size: 0.75rem; border-radius: 5px;
+              border: none; cursor: pointer; font-weight: 600; }
+    .btn-add { background: #e6f4ec; color: #1a6640; border: 1px solid #b5dfc5 !important; }
+    .btn-add:hover { background: #cfeade; }
+    .btn-apply { background: #e8f0fe; color: #1a3a5c; border: 1px solid #b0c8f0 !important; }
+    .btn-apply:hover { background: #d0e4fc; }
+    .btn-rem { background: #fde8e8; color: #8b1a1a; font-size: 0.8rem; padding: 6px 8px;
+               border: 1px solid #f0b8b8 !important; border-radius: 5px; cursor: pointer;
+               line-height: 1; width: 36px; }
+    .btn-rem:hover { background: #f8d0d0; }
+    .btn-row { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
+
+    /* Info/alert boxes */
+    .abox { border-radius: 7px; padding: 10px 13px; font-size: 0.80rem; margin-bottom: 10px; }
+    .abox-info  { background: #e8f2ff; color: #1a3a5c; border-left: 3px solid #3a7bd5; }
+    .abox-warn  { background: #fff8e1; color: #7a5800; border-left: 3px solid #f0a800; }
+    .abox-err   { background: #fde8e8; color: #8b1a1a; border-left: 3px solid #d04040; }
+    .abox-ok    { background: #e6f4ec; color: #1a5c30; border-left: 3px solid #2e9e58; }
+
+    /* Results — two column */
+    .results-cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px;
+                    margin-bottom: 16px; align-items: start; }
+    .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+                    margin-bottom: 12px; }
+    .rbox { border-radius: 8px; padding: 12px 13px; }
+    .rbox-blue   { background: #e8f2ff; }
+    .rbox-green  { background: #e6f4ec; }
+    .rbox-yellow { background: #fff8e1; }
+    .rbox-red    { background: #fde8e8; }
+    .rbox-lbl  { font-size: 0.70rem; color: #5a6a7a; margin-bottom: 4px; font-weight: 600; }
+    .rbox-val  { font-size: 1.25rem; font-weight: 800; color: #1a3a5c; }
+    .rbox-unit { font-size: 0.76rem; font-weight: 400; color: #5a6a7a; }
+    .rbox-note { font-size: 0.67rem; color: #7a8a9a; margin-top: 4px; }
+
+    /* Regimen panel (right column) */
+    .regimen-panel { background: #f4f8fc; border: 1px solid #ccd6e8; border-radius: 9px; padding: 14px; }
+    .regimen-title { font-size: 0.88rem; font-weight: 700; color: #1a3a5c; margin-bottom: 12px;
+                     border-bottom: 1px solid #d0dff0; padding-bottom: 7px; }
+    .ss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .ss-box { border-radius: 7px; padding: 9px 11px; }
+
+    .pk-summary { font-size: 0.77rem; color: #5a6a7a; background: #f8fafc;
+                  border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.9; }
+    .pk-summary strong { color: #1a3a5c; }
+
+    .chart-wrap { position: relative; height: 290px; margin-top: 16px; }
+
+    .conc-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .conc-table th { background: #1a3a5c; color: #fff; padding: 6px 8px; text-align: left; }
+    .conc-table td { padding: 5px 8px; border-bottom: 1px solid #e8eef4; }
+    .conc-table tr:nth-child(even) { background: #f4f8fc; }
+
+    .reg-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; margin-top: 8px; }
+    .reg-table th { background: #1a3a5c; color: #fff; padding: 5px 9px; text-align: left; font-weight: 600; }
+    .reg-table td { padding: 5px 9px; border-bottom: 1px solid #e8eef4; }
+    .reg-table tr:last-child td { border-bottom: none; }
+
+    .formula-box { background: #f8fafd; border: 1px solid #d4e0f0; border-radius: 7px;
+                   padding: 10px 14px; font-size: 0.78rem; color: #4a5a6a;
+                   margin-top: 14px; line-height: 1.8; }
+    .formula-box code { font-size: 0.80rem; color: #1a3a5c; background: #e8f0fe;
+                        padding: 1px 5px; border-radius: 3px; }
+
+    .detected-interval { background: #f0f6ff; border-radius: 6px; padding: 9px 12px;
+                         font-size: 0.80rem; color: #1a3a5c; margin-top: 10px; display: none; }
+    .sep { border: none; border-top: 1px solid #e4ecf4; margin: 14px 0; }
+
+    .disclaimer { font-size: 0.70rem; color: #8a9aaa; text-align: center; margin-top: 20px;
+                  border-top: 1px solid #d8e4f0; padding-top: 14px; line-height: 1.6; }
+
+    .btn-clear-sticky { position: fixed; right: 18px; top: 50%; transform: translateY(-50%);
+                        background: #fde8e8; color: #8b1a1a; border: 1px solid #f0b8b8;
+                        border-radius: 8px; padding: 10px 14px; font-size: 0.78rem;
+                        font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+                        z-index: 100; line-height: 1.3; text-align: center; }
+    .btn-clear-sticky:hover { background: #f8d0d0; }
+
+    .drug-strategy { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 4px; }
+
+    @media (max-width: 700px) {
+      .g2,.g3,.g4,.pk-bar,.results-cols,.ss-grid,.drug-strategy { grid-template-columns: 1fr 1fr; }
+      .results-grid,.target-bar,.target-edit { grid-template-columns: 1fr 1fr; }
+      .dose-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<button class="btn-clear-sticky" onclick="clearAll()">Clear<br>All</button>
+<div class="page">
+  <h1>Aminoglycoside Pharmacokinetic Calculator</h1>
+  <p class="subtitle" id="pageSubtitle">One-compartment IV infusion model · Peak &amp; trough targeting · For clinical decision support only</p>
+
+  <!-- ══ DRUG & STRATEGY ══════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">Drug &amp; Dosing Strategy</div>
+    <div class="drug-strategy">
+      <div>
+        <label>Aminoglycoside</label>
+        <select id="drug" onchange="onDrugChange()">
+          <option value="gentamicin" selected>Gentamicin</option>
+          <option value="tobramycin">Tobramycin</option>
+          <option value="amikacin">Amikacin</option>
+        </select>
+      </div>
+      <div>
+        <label>Dosing Strategy</label>
+        <select id="strategy" onchange="onStrategyChange()"></select>
+      </div>
+    </div>
+    <div id="targetEdit" class="target-edit">
+      <div>
+        <label>Target Peak C<sub>max</sub> — min (mg/L)</label>
+        <input type="number" id="tgtPeakLo" step="0.5" min="0" oninput="onTargetEdit()">
+      </div>
+      <div>
+        <label>Target Peak C<sub>max</sub> — max (mg/L)</label>
+        <input type="number" id="tgtPeakHi" step="0.5" min="0" oninput="onTargetEdit()">
+      </div>
+      <div>
+        <label>Trough Goal — keep below (mg/L)</label>
+        <input type="number" id="tgtTrough" step="0.1" min="0" oninput="onTargetEdit()">
+      </div>
+      <div>
+        <label>Target C<sub>max</sub>/MIC</label>
+        <div class="tgt-static">≥ <b id="tgtCmaxMic">8</b> <span style="color:#5a7a64;">(MIC-based)</span></div>
+      </div>
+    </div>
+    <div class="tgt-reset-row">
+      <span class="helper">Auto-filled from the selected drug &amp; strategy — edit any value to override.</span>
+      <span class="toggle-link" onclick="resetTargets()">↺ reset to defaults</span>
+    </div>
+    <div class="helper" id="strategyDesc" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- ══ DEMOGRAPHICS ══════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">Patient Demographics &amp; Estimated PK</div>
+    <div class="g3">
+      <div>
+        <label>Age (years)</label>
+        <input type="number" id="age" placeholder="e.g. 65" min="18" max="120">
+      </div>
+      <div>
+        <label>Sex</label>
+        <select id="sex">
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+      </div>
+      <div>
+        <label>Total Body Weight (kg)</label>
+        <input type="number" id="tbw" placeholder="e.g. 75" min="20" max="300" step="0.5">
+      </div>
+      <div>
+        <label>Height (cm)</label>
+        <input type="number" id="height" placeholder="e.g. 170" min="100" max="220">
+      </div>
+      <div>
+        <label>Serum Creatinine
+          <select id="scrUnit" style="display:inline;width:auto;padding:2px 5px;font-size:0.72rem;margin-left:4px;">
+            <option value="mgdl" selected>mg/dL</option>
+            <option value="umol">µmol/L</option>
+          </select>
+        </label>
+        <input type="number" id="scr" placeholder="value" min="0.1" max="2000" step="0.1">
+      </div>
+      <div>
+        <label>MIC (mg/L) for C<sub>max</sub>/MIC</label>
+        <input type="number" id="mic" value="1" step="0.5" min="0">
+        <div class="helper">Target C<sub>max</sub>/MIC ≥ 8–10 (concentration-dependent killing)</div>
+      </div>
+    </div>
+    <div id="pkBar" class="pk-bar" style="display:none;"></div>
+    <div id="scrFloorWarn" style="display:none; margin-top:6px; padding:8px 14px; background:#fff8e1; border:1px solid #f0c040; border-radius:6px; font-size:0.85em; color:#7a5800;">
+      ⚠ SCr &lt; 0.8 mg/dL in an elderly patient — CrCl calculated using SCr = 0.8 mg/dL to avoid overestimating renal function.
+    </div>
+    <div id="suggestedDoseBar" style="display:none; margin-top:8px; padding:10px 14px; background:#eaf4ea; border:1px solid #a8d5a8; border-radius:6px; color:#2d6a2d;">
+      <strong style="font-size:0.85em;" id="suggestedDoseHead">Suggested initial regimen (population PK):</strong>
+      <div id="dispSuggestedDose"></div>
+    </div>
+  </div>
+
+  <!-- ══ PK OVERRIDE ═══════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">
+      PK Override
+      <span class="toggle-link" onclick="toggleSection('overrideBody',this)">▸ show</span>
+    </div>
+    <div id="overrideBody" style="display:none;">
+      <div class="abox abox-info" style="margin-bottom:12px;">
+        Leave blank to use population estimates above. Entering k and/or Vd here overrides the calculated values.
+      </div>
+      <div class="g2">
+        <div>
+          <label>k — Elimination Rate Constant (hr⁻¹)</label>
+          <input type="number" id="manualK" placeholder="e.g. 0.231" step="0.001" min="0.005" max="2">
+        </div>
+        <div>
+          <label>Vd — Volume of Distribution (L)</label>
+          <input type="number" id="manualV" placeholder="e.g. 18" step="0.1" min="1" max="200">
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;color:#1a3a5c;">
+          <input type="checkbox" id="chkSamePhase" onchange="toggleSamePhase()">
+          Derive k from two same-phase levels
+        </label>
+      </div>
+      <div id="samePhaseSect" style="display:none;margin-top:12px;">
+        <div class="abox abox-info" style="margin-bottom:10px;">
+          Both levels must be from the <strong>same elimination phase</strong> — no dose given between draws.
+          Formula: <code>k = ln(C₁/C₂) / (t₂ − t₁)</code>. The calculated k is applied to the override field above.
+        </div>
+        <div class="g4">
+          <div>
+            <label>Level 1 — Date &amp; Time</label>
+            <input type="datetime-local" id="sp_l1dt" oninput="calcSamePhasek()">
+          </div>
+          <div>
+            <label>Level 1 — Conc (mg/L)</label>
+            <input type="number" id="sp_l1c" placeholder="e.g. 7.2" step="0.1" min="0" oninput="calcSamePhasek()">
+          </div>
+          <div>
+            <label>Level 2 — Date &amp; Time</label>
+            <input type="datetime-local" id="sp_l2dt" oninput="calcSamePhasek()">
+          </div>
+          <div>
+            <label>Level 2 — Conc (mg/L)</label>
+            <input type="number" id="sp_l2c" placeholder="e.g. 1.4" step="0.1" min="0" oninput="calcSamePhasek()">
+          </div>
+        </div>
+        <div id="spResultBox" style="display:none;margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DOSING HISTORY ════════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">Dosing History</div>
+    <p style="font-size:0.78rem;color:#5a6a7a;margin-bottom:10px;">
+      Enter each dose with the actual date and time administered. Aminoglycosides are typically infused over 30 min.
+      For peak+trough individualization (below), enter the dose that the peak was drawn after.
+    </p>
+    <div id="doseRows"></div>
+    <div class="btn-row">
+      <button class="btn btn-sm btn-add" onclick="addDose()">+ Add Dose</button>
+    </div>
+  </div>
+
+  <!-- ══ MEASURED LEVELS ═══════════════════════════════════════ -->
+  <div class="card">
+    <div class="card-title">Determine Patient-Specific PK from Measured Levels</div>
+
+    <div class="abox abox-info" style="margin-bottom:12px;">
+      <strong>2 levels:</strong> two concentrations let the tool individualize patient PK (Sawchuk–Zaske). A peak + trough in the <em>same interval</em> (no dose between) solves <strong>both</strong> k and Vd. A trough-before-dose then peak-after-dose, or any pair with a dose between, is also supported (see sampling pattern below). &nbsp;
+      <strong>1 level:</strong> Vd fixed at population estimate; solves for k.
+      <br><span style="color:#3a5a78;">Sample timing need not be exact — "peak"/"trough" are used loosely. Once k<sub>e</sub> is found, the tool reports the true <strong>C<sub>max</sub></strong> (end of infusion) and <strong>C<sub>min</sub></strong> (just before the next dose) for the regimen, extrapolated from your levels regardless of when they were drawn.</span>
+    </div>
+
+    <div class="sub-tabs" style="margin-bottom:14px;">
+      <div class="sub-tab active" id="tabTwoLevel" onclick="setLevelCount(2)">
+        2 Levels
+        <div style="font-size:0.65rem;font-weight:400;margin-top:1px;">Individualizes patient PK</div>
+      </div>
+      <div class="sub-tab" id="tabOneLevel" onclick="setLevelCount(1)">
+        1 Level
+        <div style="font-size:0.65rem;font-weight:400;margin-top:1px;">Vd fixed — solves k</div>
+      </div>
+    </div>
+
+    <div id="samplePatternRow" style="margin-bottom:12px;">
+      <label>Sampling pattern</label>
+      <select id="samplePattern" onchange="onSamplePatternChange()">
+        <option value="peakTrough" selected>Peak after a dose, then trough before next dose — same interval</option>
+        <option value="troughPeak">Trough before a dose, then peak after that dose</option>
+      </select>
+      <div class="helper" id="samplePatternHelp"></div>
+    </div>
+
+    <!-- Level 1 -->
+    <div class="g2" style="margin-bottom:8px;">
+      <div>
+        <label id="l1lbl">Peak — Date &amp; Time Drawn</label>
+        <input type="datetime-local" id="l1dt">
+      </div>
+      <div>
+        <label>Concentration (mg/L)</label>
+        <input type="number" id="l1c" placeholder="e.g. 7.2" step="0.1" min="0">
+      </div>
+    </div>
+
+    <!-- Level 2 -->
+    <div class="g2" id="level2Fields" style="margin-bottom:8px;">
+      <div>
+        <label id="l2lbl">Trough — Date &amp; Time Drawn</label>
+        <input type="datetime-local" id="l2dt">
+      </div>
+      <div>
+        <label>Concentration (mg/L)</label>
+        <input type="number" id="l2c" placeholder="e.g. 1.2" step="0.1" min="0">
+      </div>
+    </div>
+
+    <hr class="sep">
+
+    <label style="cursor:pointer;display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;color:#1a3a5c;margin-bottom:0;">
+      <input type="checkbox" id="chkForwardPred" onchange="document.getElementById('forwardPredSect').style.display=this.checked?'block':'none'">
+      Forward Prediction (optional)
+    </label>
+    <div id="forwardPredSect" style="display:none;margin-top:12px;">
+      <label>Predict concentration at Date &amp; Time</label>
+      <input type="datetime-local" id="queryDtB">
+    </div>
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="runCalc()">Calculate</button>
+    </div>
+  </div>
+
+  <!-- ══ RESULTS ═══════════════════════════════════════════════ -->
+  <div id="resultsCard" class="card" style="display:none;">
+    <div class="card-title">Results</div>
+    <div id="alertsArea"></div>
+    <div id="pkSummary" class="pk-summary"></div>
+
+    <div class="results-cols">
+      <div>
+        <div id="resultsGrid" class="results-grid"></div>
+        <div id="tableWrap" style="overflow-x:auto;"></div>
+      </div>
+      <div class="regimen-panel">
+        <div class="regimen-title">Future Dose Regimen Estimator</div>
+        <div class="g2">
+          <div>
+            <label>Proposed Dose (mg)</label>
+            <input type="number" id="regimenDose" step="10" min="10" placeholder="e.g. 120" oninput="estimateRegimen()">
+          </div>
+          <div>
+            <label>Proposed Interval</label>
+            <select id="regimenInterval" onchange="estimateRegimen()">
+              <option value="">— select —</option>
+              <option value="8">q8h</option>
+              <option value="12">q12h</option>
+              <option value="18">q18h</option>
+              <option value="24">q24h (daily)</option>
+              <option value="36">q36h</option>
+              <option value="48">q48h</option>
+              <option value="72">q72h</option>
+            </select>
+          </div>
+        </div>
+        <div id="regimenOutput">
+          <div class="abox abox-info" style="margin-top:10px;font-size:0.76rem;">
+            Select a proposed dose and interval to estimate steady-state peak &amp; trough.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrap"><canvas id="pkChart"></canvas></div>
+
+    <div class="formula-box" id="formulaBox">
+      <strong>Model:</strong> One-compartment IV infusion, linear superposition.<br>
+      <strong>During infusion:</strong> <code>C(t) = (R/Vk)(1−e<sup>−kΔt</sup>)</code> where R = dose/t<sub>inf</sub> &nbsp;·&nbsp;
+      <strong>After infusion:</strong> <code>C(t) = C(t<sub>inf</sub>) × e<sup>−k(t−t<sub>inf</sub>)</sup></code><br>
+      <strong>k</strong> (Sawchuk–Zaske): <code>k = 0.00293×CrCl + 0.014</code> &nbsp;·&nbsp;
+      <strong>Vd</strong>: <code>≈0.25×weight</code> &nbsp;·&nbsp;
+      <strong>CrCl</strong> (Cockcroft–Gault): <code>((140−age)×wt)/(72×SCr<sub>mg/dL</sub>) × 0.85 if ♀</code><br>
+      <strong>Peak+trough solver:</strong> <code>k = ln(C<sub>pk</sub>/C<sub>tr</sub>)/Δt</code>, then Vd from the infusion equation (both individualized).<br>
+      <strong>SS peak (end-inf):</strong> <code>C<sub>max</sub> = (R/Vk)(1−e<sup>−k·t<sub>inf</sub></sup>)/(1−e<sup>−kτ</sup>)</code> &nbsp;·&nbsp;
+      <strong>SS trough:</strong> <code>C<sub>min</sub> = C<sub>max</sub>·e<sup>−k(τ−t<sub>inf</sub>)</sup></code>
+    </div>
+  </div>
+
+  <p class="disclaimer">
+    ⚠ <strong>Clinical Disclaimer:</strong> For educational and clinical decision-support purposes only.
+    All dosing decisions must be reviewed by a licensed pharmacist or physician per institutional protocols.
+    PK models are approximations; individual responses vary. Aminoglycosides carry nephro- and ototoxicity risk —
+    confirm targets, sampling times, and monitoring against your local guidelines.
+  </p>
+</div><!-- end .page -->
+
+<script>
+/* ════════════════════════════════════════════════════════
+   DRUG & STRATEGY DEFINITIONS
+   Targets reflect commonly cited adult ranges. Gentamicin/
+   tobramycin share PK and targets; amikacin uses ~4x higher
+   targets. All share the Sawchuk-Zaske ke-CrCl relationship.
+════════════════════════════════════════════════════════ */
+const DRUGS = {
+  gentamicin: { name:'Gentamicin', vdPerKg:0.25, roundTo:10, peakMicMin:8 },
+  tobramycin: { name:'Tobramycin', vdPerKg:0.25, roundTo:10, peakMicMin:8 },
+  amikacin:   { name:'Amikacin',   vdPerKg:0.25, roundTo:50, peakMicMin:8 }
+};
+
+// k = kSlope*CrCl + kInt  (Sawchuk-Zaske, applied to all three)
+const KE_SLOPE = 0.00293, KE_INT = 0.014;
+
+// Strategy targets, keyed by drug then strategy.
+// peakLo/peakHi = target drawn-peak window (mg/L, ~30 min after end of 30-min infusion)
+// troughMax     = upper acceptable trough (mg/L)
+// troughTarget  = value used for interval design
+// mgPerKg       = typical initial dose per kg dosing weight
+// defInterval   = default/typical interval (hr)
+const TARGETS = {
+  gentamicin: {
+    conventional: { label:'Conventional (multiple daily)', peakLo:5, peakHi:10, troughMax:2, troughTarget:1, mgPerKg:1.7, defInterval:8,
+      desc:'Gram-negative infection, multiple daily dosing (q8–12h). Peak 5–10 mg/L, trough &lt;2 mg/L (aim &lt;1).' },
+    synergy: { label:'Synergy (gram-positive)', peakLo:3, peakHi:5, troughMax:1, troughTarget:0.5, mgPerKg:1.0, defInterval:8,
+      desc:'Synergistic dosing for gram-positive endocarditis (e.g. with a cell-wall agent). Peak 3–5 mg/L, trough &lt;1 mg/L.' },
+    extended: { label:'Extended-interval (once-daily)', peakLo:16, peakHi:24, troughMax:1, troughTarget:0.3, mgPerKg:6, defInterval:24,
+      desc:'High-dose extended-interval / once-daily (5–7 mg/kg q24h). Peak 16–24 mg/L (Cmax/MIC ≥ 8–10), trough undetectable.' }
+  },
+  tobramycin: {
+    conventional: { label:'Conventional (multiple daily)', peakLo:5, peakHi:10, troughMax:2, troughTarget:1, mgPerKg:1.7, defInterval:8,
+      desc:'Gram-negative infection, multiple daily dosing (q8–12h). Peak 5–10 mg/L, trough &lt;2 mg/L (aim &lt;1).' },
+    synergy: { label:'Synergy (gram-positive)', peakLo:3, peakHi:5, troughMax:1, troughTarget:0.5, mgPerKg:1.0, defInterval:8,
+      desc:'Synergistic dosing for gram-positive endocarditis. Peak 3–5 mg/L, trough &lt;1 mg/L.' },
+    extended: { label:'Extended-interval (once-daily)', peakLo:16, peakHi:24, troughMax:1, troughTarget:0.3, mgPerKg:6, defInterval:24,
+      desc:'High-dose extended-interval / once-daily (5–7 mg/kg q24h). Peak 16–24 mg/L (Cmax/MIC ≥ 8–10), trough undetectable.' }
+  },
+  amikacin: {
+    conventional: { label:'Conventional (multiple daily)', peakLo:20, peakHi:30, troughMax:10, troughTarget:5, mgPerKg:7.5, defInterval:8,
+      desc:'Gram-negative infection, multiple daily dosing (q8–12h). Peak 20–30 mg/L, trough &lt;10 mg/L (aim &lt;5).' },
+    extended: { label:'Extended-interval (once-daily)', peakLo:50, peakHi:60, troughMax:4, troughTarget:1, mgPerKg:15, defInterval:24,
+      desc:'High-dose extended-interval / once-daily (15 mg/kg q24h). Peak 50–60 mg/L, trough &lt;4 mg/L.' }
+  }
+};
+
+const STD_INTERVALS = [8,12,18,24,36,48,72];
+const DEFAULT_INF_DUR = 0.5; // 30 min
+
+/* ════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════ */
+function dtToHours(dtStr, refDtStr) {
+  if (!dtStr || !refDtStr) return NaN;
+  return (new Date(dtStr) - new Date(refDtStr)) / 3600000;
+}
+function toLocalDtStr(date) {
+  const p = n => String(n).padStart(2,'0');
+  return `${date.getFullYear()}-${p(date.getMonth()+1)}-${p(date.getDate())}T${p(date.getHours())}:${p(date.getMinutes())}`;
+}
+function addHrs(dtStr, hrs) {
+  return toLocalDtStr(new Date(new Date(dtStr).getTime() + hrs * 3600000));
+}
+function nowDt(h = 8) {
+  const d = new Date(); d.setHours(h,0,0,0);
+  return toLocalDtStr(d);
+}
+function nearestInterval(h) {
+  return STD_INTERVALS.reduce((p,c) => Math.abs(c-h) < Math.abs(p-h) ? c : p);
+}
+function intervalLabel(h) {
+  const m = {8:'q8h',12:'q12h',18:'q18h',24:'q24h (daily)',36:'q36h',48:'q48h',72:'q72h'};
+  return m[h] || `q${h}h`;
+}
+function fmtDt(dtStr) {
+  if (!dtStr) return '—';
+  const d = new Date(dtStr);
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' ' +
+         d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function toggleSection(id, btn) {
+  const el = document.getElementById(id), open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  btn.textContent  = open ? '▸ show' : '▾ hide';
+}
+function curDrug()     { return DRUGS[document.getElementById('drug').value]; }
+function curStrategy() {
+  return TARGETS[document.getElementById('drug').value][document.getElementById('strategy').value];
+}
+function roundDose(mg) {
+  const r = curDrug().roundTo;
+  return Math.max(r, Math.round(mg / r) * r);
+}
+
+/* ════════════════════════════════════════════════════════
+   UI STATE
+════════════════════════════════════════════════════════ */
+let currentLevelCount = 2;
+let pkChartObj        = null;
+let lastCalcResult    = null;   // {k, V, mic}
+let lastRun           = null;   // {hist, refDtStr, ic} — for live results-grid refresh on target edits
+let lastLevelIC       = null;   // {c, tHr} initial condition (peak) for 2-level mode
+let doses = [], nextId = 0, lastDoseAmt = 120;
+
+/* ── Drug / strategy selectors ───────────────────────────── */
+function populateStrategyOptions() {
+  const drugKey = document.getElementById('drug').value;
+  const sel = document.getElementById('strategy');
+  const prev = sel.value;
+  const keys = Object.keys(TARGETS[drugKey]);
+  sel.innerHTML = keys.map(k => `<option value="${k}">${TARGETS[drugKey][k].label}</option>`).join('');
+  sel.value = keys.includes(prev) ? prev : keys[0];
+}
+function onDrugChange() {
+  populateStrategyOptions();
+  onStrategyChange();
+}
+function onStrategyChange() {
+  populateTargetInputs();   // overwrite goal fields with this strategy's defaults
+  onTargetEdit();           // recompute everything from the (now default) goals
+}
+
+// Fill the editable goal fields from the selected drug/strategy defaults.
+function populateTargetInputs() {
+  const s = curStrategy();
+  const $g = id => document.getElementById(id);
+  $g('tgtPeakLo').value  = s.peakLo;
+  $g('tgtPeakHi').value  = s.peakHi;
+  $g('tgtTrough').value  = s.troughMax;
+  $g('tgtCmaxMic').textContent = curDrug().peakMicMin;
+  $g('strategyDesc').innerHTML = s.desc;
+}
+
+// Read the live (possibly user-edited) goals, falling back to strategy defaults.
+function getTargets() {
+  const s = curStrategy();
+  const pLo = parseFloat(document.getElementById('tgtPeakLo').value);
+  const pHi = parseFloat(document.getElementById('tgtPeakHi').value);
+  const tr  = parseFloat(document.getElementById('tgtTrough').value);
+  const peakLo = isFinite(pLo) ? pLo : s.peakLo;
+  const peakHi = isFinite(pHi) ? pHi : s.peakHi;
+  const trough = isFinite(tr) && tr > 0 ? tr : s.troughMax;
+  return {
+    peakLo: Math.min(peakLo, peakHi),
+    peakHi: Math.max(peakLo, peakHi),
+    troughMax: trough,
+    troughTarget: trough,          // interval design aims at the user's trough goal
+    label: s.label, defInterval: s.defInterval, desc: s.desc
+  };
+}
+
+// Live recompute when a goal is edited (or after auto-populate).
+function onTargetEdit() {
+  updatePKBar(); // refreshes population-PK suggested-regimen table against new goals
+  if (lastCalcResult) {
+    estimateRegimen();
+    if (lastRun) buildResultsGrid(lastRun.hist, lastCalcResult.k, lastCalcResult.V,
+                                  lastRun.refDtStr, lastRun.ic, lastCalcResult.mic);
+  }
+}
+
+function resetTargets() {
+  populateTargetInputs();
+  onTargetEdit();
+}
+
+function setLevelCount(n) {
+  currentLevelCount = n;
+  document.getElementById('tabTwoLevel').classList.toggle('active', n===2);
+  document.getElementById('tabOneLevel').classList.toggle('active', n===1);
+  document.getElementById('level2Fields').style.display = n===2 ? 'grid' : 'none';
+  document.getElementById('samplePatternRow').style.display = n===2 ? 'block' : 'none';
+  if (n===2) { onSamplePatternChange(); }
+  else {
+    document.getElementById('l1lbl').textContent = 'Level — Date & Time Drawn';
+    autoFillLevelDates();
+  }
+}
+
+// Two-level sampling pattern: 'peakTrough' (peak then trough, one interval) or
+// 'troughPeak' (trough before a dose, then peak after that dose — a dose lies between).
+function samplePattern() {
+  const el = document.getElementById('samplePattern');
+  return el ? el.value : 'peakTrough';
+}
+function onSamplePatternChange() {
+  const tp = samplePattern()==='troughPeak';
+  document.getElementById('l1lbl').textContent = tp ? 'Trough — Date & Time (before dose)' : 'Peak — Date & Time Drawn';
+  document.getElementById('l2lbl').textContent = tp ? 'Peak — Date & Time (after that dose)' : 'Trough — Date & Time Drawn';
+  document.getElementById('l1c').placeholder = tp ? 'e.g. 1.2' : 'e.g. 7.2';
+  document.getElementById('l2c').placeholder = tp ? 'e.g. 7.2' : 'e.g. 1.2';
+  document.getElementById('samplePatternHelp').innerHTML = tp
+    ? 'A dose is given between the two samples. Both k and Vd are individualized when prior doses are in the history; with only the straddled dose entered, the trough anchors the curve and Vd uses the population estimate.'
+    : 'Both samples fall in the same dosing interval (no dose between) — individualizes both k and Vd.';
+  autoFillLevelDates();
+}
+
+/* ════════════════════════════════════════════════════════
+   DOSE ROWS
+════════════════════════════════════════════════════════ */
+const INF_OPT_LABELS = {0.5:'30 min',1:'1 hr',2:'2 hr'};
+function infOptHTML(sel = DEFAULT_INF_DUR) {
+  return Object.entries(INF_OPT_LABELS).map(([v,lbl]) =>
+    `<option value="${v}" ${parseFloat(v)===sel?'selected':''}>${lbl}</option>`).join('');
+}
+function nextDoseDefaultDt() {
+  const getDt = d => document.getElementById(`dDt${d.id}`)?.value || d.datetimeStr;
+  if (doses.length === 0) return nowDt(8);
+  if (doses.length === 1) return addHrs(getDt(doses[0]), curStrategy().defInterval);
+  const d1ms = new Date(getDt(doses[0])).getTime();
+  const d2ms = new Date(getDt(doses[1])).getTime();
+  const intervalMs = d2ms - d1ms;
+  const lastMs = new Date(getDt(doses[doses.length - 1])).getTime();
+  if (intervalMs > 0 && !isNaN(lastMs)) return toLocalDtStr(new Date(lastMs + intervalMs));
+  return addHrs(getDt(doses[doses.length - 1]), curStrategy().defInterval);
+}
+function addDose(defaultAmt = null, defaultDt = '') {
+  const amt = defaultAmt !== null ? defaultAmt : lastDoseAmt;
+  const id  = ++nextId;
+  const dt  = defaultDt || nextDoseDefaultDt();
+  doses.push({ id, amount: amt, datetimeStr: dt, infDur: DEFAULT_INF_DUR });
+
+  const row = document.createElement('div');
+  row.className = 'dose-row'; row.id = `dRow${id}`;
+  row.innerHTML = `
+    <div>
+      <label>Date &amp; Time Given</label>
+      <input type="datetime-local" id="dDt${id}" value="${dt}" oninput="syncDose(${id})">
+    </div>
+    <div>
+      <label>Dose ${id} — mg</label>
+      <input type="number" id="dAmt${id}" value="${amt}" step="10" min="10" oninput="syncDose(${id})">
+    </div>
+    <div>
+      <label>Infusion Duration</label>
+      <select id="dInf${id}" onchange="syncDose(${id})">${infOptHTML(DEFAULT_INF_DUR)}</select>
+    </div>
+    <button class="btn-rem" onclick="removeDose(${id})" title="Remove">✕</button>`;
+  document.getElementById('doseRows').appendChild(row);
+  if (!defaultDt) autoFillLevelDates();
+}
+function syncDose(id, autoFill=true) {
+  const d = doses.find(x => x.id===id); if (!d) return;
+  const newAmt = parseFloat(document.getElementById(`dAmt${id}`).value);
+  if (!isNaN(newAmt)) { d.amount = newAmt; lastDoseAmt = newAmt; }
+  d.infDur = parseFloat(document.getElementById(`dInf${id}`).value);
+  d.datetimeStr = document.getElementById(`dDt${id}`).value;
+  if (autoFill) autoFillLevelDates();
+}
+function removeDose(id) {
+  doses = doses.filter(d => d.id!==id);
+  const el = document.getElementById(`dRow${id}`); if (el) el.remove();
+  autoFillLevelDates();
+}
+
+// Auto-populate level dates from dose history.
+// 2-level peakTrough: peak ~ last dose end-of-infusion + 0.5 hr; trough = just before next dose.
+// 2-level troughPeak: trough just before the last dose; peak ~30 min after that dose's infusion.
+// 1-level: level tracks last dose + 1 interval (pre-dose).
+function autoFillLevelDates() {
+  const valid = doses.filter(d => d.datetimeStr).sort((a,b)=>new Date(a.datetimeStr)-new Date(b.datetimeStr));
+  if (!valid.length) return;
+  const last = valid[valid.length-1];
+  const l1dtEl = document.getElementById('l1dt');
+  const l2dtEl = document.getElementById('l2dt');
+  const intv = curStrategy().defInterval;
+  if (currentLevelCount === 2) {
+    if (samplePattern()==='troughPeak') {
+      if (l1dtEl) l1dtEl.value = addHrs(last.datetimeStr, -0.083);              // trough ~5 min before the dose
+      if (l2dtEl) l2dtEl.value = addHrs(last.datetimeStr, last.infDur + 0.5);   // peak ~30 min post-infusion
+    } else {
+      if (l1dtEl) l1dtEl.value = addHrs(last.datetimeStr, last.infDur + 0.5);   // peak ~30 min post-infusion
+      if (l2dtEl) l2dtEl.value = addHrs(last.datetimeStr, intv - 0.5);          // trough just before next dose
+    }
+  } else {
+    if (l1dtEl) l1dtEl.value = addHrs(last.datetimeStr, intv);
+  }
+}
+
+function getActiveHistory() {
+  doses.forEach(d => syncDose(d.id, false));
+  const sorted = doses.filter(d=>d.datetimeStr).sort((a,b)=>new Date(a.datetimeStr)-new Date(b.datetimeStr));
+  if (!sorted.length) return { err:'Enter at least one dose in Dosing History.' };
+  const refDtStr = sorted[0].datetimeStr;
+  const hist = doses
+    .filter(d => d.datetimeStr)
+    .map(d => ({ amount:d.amount, timeHr:dtToHours(d.datetimeStr,refDtStr), infDur:d.infDur, dtStr:d.datetimeStr }))
+    .filter(d => !isNaN(d.timeHr) && d.amount > 0)
+    .sort((a,b) => a.timeHr-b.timeHr);
+  return { hist, refDtStr };
+}
+
+/* ════════════════════════════════════════════════════════
+   POPULATION PK
+════════════════════════════════════════════════════════ */
+function getScrMgdl() {
+  const v=parseFloat(document.getElementById('scr').value);
+  return document.getElementById('scrUnit').value==='umol' ? v/88.4 : v;
+}
+function calcIBW(tbw,cm,sex) {
+  return Math.max((sex==='female'?45.5:50)+2.3*(cm/2.54-60), 30);
+}
+// Aminoglycoside dosing weight: TBW if non-obese, adjusted BW (IBW + 0.4·excess) if obese.
+function calcDosingWt(tbw,ibw) {
+  if (tbw <= ibw) return tbw;
+  if (tbw > 1.2*ibw) return ibw + 0.4*(tbw-ibw);
+  return tbw;
+}
+function calcCrCl(age,sex,tbw,cm,scrMgdl) {
+  const ibw=calcIBW(tbw,cm,sex), wt=calcDosingWt(tbw,ibw);
+  let cc=((140-age)*wt)/(72*scrMgdl);
+  if (sex==='female') cc*=0.85;
+  return Math.max(cc,5);
+}
+function getPopPK() {
+  const age=parseFloat(document.getElementById('age').value),
+        sex=document.getElementById('sex').value,
+        tbw=parseFloat(document.getElementById('tbw').value),
+        ht =parseFloat(document.getElementById('height').value);
+  let scr=getScrMgdl();
+  if ([age,tbw,ht,scr].some(isNaN)) return null;
+  let scrFloored=false;
+  if (age>60 && scr<0.8) { scr=0.8; scrFloored=true; }
+  const ibw=calcIBW(tbw,ht,sex), dw=calcDosingWt(tbw,ibw),
+        crcl=calcCrCl(age,sex,tbw,ht,scr),
+        k=KE_SLOPE*crcl+KE_INT,
+        V=curDrug().vdPerKg*dw;
+  return { k, V, crcl, hl:0.693/k, CL:V*k, ibw, dw, scrFloored };
+}
+
+function updatePKBar() {
+  const pkBar=document.getElementById('pkBar');
+  const scrWarn=document.getElementById('scrFloorWarn');
+  const sugBar=document.getElementById('suggestedDoseBar');
+  const pk=getPopPK();
+  if (!pk) { pkBar.style.display='none'; scrWarn.style.display='none'; sugBar.style.display='none'; return; }
+  scrWarn.style.display=pk.scrFloored?'block':'none';
+  pkBar.innerHTML=`
+    <div class="pk-cell"><div class="pk-val">${pk.crcl.toFixed(1)}</div><div class="pk-lbl">CrCl (mL/min)<br>Cockcroft–Gault</div></div>
+    <div class="pk-cell"><div class="pk-val">${pk.k.toFixed(4)}</div><div class="pk-lbl">k (hr⁻¹)<br>Sawchuk–Zaske</div></div>
+    <div class="pk-cell"><div class="pk-val">${pk.hl.toFixed(1)}</div><div class="pk-lbl">Half-life (hr)</div></div>
+    <div class="pk-cell"><div class="pk-val">${pk.V.toFixed(1)}</div><div class="pk-lbl">Vd (L)<br>${curDrug().vdPerKg}×wt</div></div>
+    <div class="pk-cell"><div class="pk-val">${pk.CL.toFixed(2)}</div><div class="pk-lbl">CL (L/hr)</div></div>
+    <div class="pk-cell"><div class="pk-val">${pk.ibw.toFixed(1)} / ${pk.dw.toFixed(1)}</div><div class="pk-lbl">IBW / DosingWt (kg)</div></div>`;
+  pkBar.style.display='grid';
+  document.getElementById('dispSuggestedDose').innerHTML = buildRegimenTable(pk.k, pk.V);
+  sugBar.style.display='block';
+}
+
+/* ════════════════════════════════════════════════════════
+   SAME-PHASE k DERIVATION (PK Override helper)
+════════════════════════════════════════════════════════ */
+let spCalcK = null;
+function toggleSamePhase() {
+  document.getElementById('samePhaseSect').style.display =
+    document.getElementById('chkSamePhase').checked ? 'block' : 'none';
+}
+function calcSamePhasek() {
+  const c1=parseFloat(document.getElementById('sp_l1c').value),
+        c2=parseFloat(document.getElementById('sp_l2c').value),
+        d1=document.getElementById('sp_l1dt').value,
+        d2=document.getElementById('sp_l2dt').value;
+  const box=document.getElementById('spResultBox');
+  if (isNaN(c1)||isNaN(c2)||c1<=0||c2<=0||!d1||!d2) { box.style.display='none'; return; }
+  const dt=dtToHours(d2,d1);
+  if (dt<=0||c1<=c2) {
+    box.className='abox abox-err'; box.style.display='block';
+    box.innerHTML='Level 2 must be drawn after Level 1 and be lower (pure elimination).';
+    return;
+  }
+  const k=Math.log(c1/c2)/dt;
+  spCalcK=k;
+  box.className='abox abox-ok'; box.style.display='block';
+  box.innerHTML=
+    `<strong>k = ${k.toFixed(4)} hr⁻¹</strong> &nbsp;·&nbsp; t½ = ${(0.693/k).toFixed(1)} hr
+     &nbsp;·&nbsp; (${c1} → ${c2} mg/L over ${dt.toFixed(2)} hr)
+     <br><button class="btn btn-sm btn-apply" style="margin-top:6px;" onclick="applySamePhasek()">Apply k = ${k.toFixed(4)} hr⁻¹ to override</button>`;
+}
+function applySamePhasek() {
+  if (spCalcK===null) return;
+  document.getElementById('manualK').value=spCalcK.toFixed(4);
+}
+
+/* ════════════════════════════════════════════════════════
+   CONCENTRATION MODEL (1-compartment IV infusion)
+════════════════════════════════════════════════════════ */
+function concFromDose(amt,tStart,infDur,k,V,t) {
+  if (t<tStart) return 0;
+  const R=amt/infDur, tEnd=tStart+infDur;
+  if (t<=tEnd) return (R/(V*k))*(1-Math.exp(-k*(t-tStart)));
+  return (R/(V*k))*(1-Math.exp(-k*infDur))*Math.exp(-k*(t-tEnd));
+}
+function totalConc(hist,k,V,t) {
+  return hist.reduce((s,d)=>s+concFromDose(d.amount,d.timeHr,d.infDur,k,V,t),0);
+}
+function totalConcWithIC(hist,k,V,t,ic) {
+  if (!ic) return totalConc(hist,k,V,t);
+  if (t<=ic.tHr) return ic.c*Math.exp(-k*(ic.tHr-t));
+  const dt=t-ic.tHr;
+  const after=hist.filter(d=>d.timeHr>ic.tHr).map(d=>({...d,timeHr:d.timeHr-ic.tHr}));
+  return ic.c*Math.exp(-k*dt)+totalConc(after,k,V,dt);
+}
+
+/* ════════════════════════════════════════════════════════
+   PATIENT-SPECIFIC SOLVERS
+════════════════════════════════════════════════════════ */
+// Robust 1-D root finder: scan for a sign change over [lo,hi], then bisect.
+function bracketSolve(f, lo, hi, steps=240) {
+  let prevX=lo, prevF=f(lo);
+  const h=(hi-lo)/steps;
+  for (let i=1;i<=steps;i++) {
+    const x=lo+i*h, fx=f(x);
+    if (isFinite(prevF) && prevF===0) return {k:prevX};
+    if (isFinite(prevF) && isFinite(fx) && prevF*fx<0) {
+      let a=prevX,b=x,fa=prevF;
+      for (let j=0;j<100;j++){ const m=(a+b)/2,fm=f(m); if(!isFinite(fm)){a=m;continue;} if(fa*fm<=0){b=m;}else{a=m;fa=fm;} if(b-a<1e-8)break; }
+      return {k:(a+b)/2};
+    }
+    prevX=x; prevF=fx;
+  }
+  return {err:'no sign change'};
+}
+
+// One level: fix Vd (population), solve k by bisection.
+function findPatientPK_oneLevel(hist,c1,t1,V) {
+  if (c1<=0) return {err:'Concentration must be positive.'};
+  const at1=hist.filter(d=>d.timeHr<=t1);
+  if (!at1.length) return {err:'No doses at or before the level draw time.'};
+  const f=k=>totalConc(at1,k,V,t1)-c1;
+  const fLo=f(0.001),fHi=f(2);
+  if (Math.sign(fLo)===Math.sign(fHi))
+    return {err:'Could not bracket a solution. Check that the level is consistent with the dosing history and population Vd.'};
+  let lo=0.001,hi=2;
+  for (let i=0;i<120;i++){const m=(lo+hi)/2;f(m)*f(lo)<=0?hi=m:lo=m;if(hi-lo<1e-8)break;}
+  const k=(lo+hi)/2;
+  if (k<=0||k>2) return {err:`k = ${k.toFixed(5)} hr⁻¹ out of range.`};
+  return {k,V,hl:0.693/k,CL:V*k,method:'single level, Vd fixed'};
+}
+
+// General two-level solver. Handles:
+//  • No dose between samples (peak→trough, same interval): pure log-linear k, then Vd. Full individualization.
+//  • Dose between samples (e.g. trough→peak around a dose) WITH prior doses in history:
+//      numeric 2-D fit — V(k) matches the later level, k chosen so the earlier level also matches. Full individualization.
+//  • Dose between samples with only the straddled dose entered (no prior history):
+//      anchor the earlier level as an initial condition, hold Vd at the population estimate, solve k.
+// Returns {k, V, hl, CL, vFixed, ic, method} or {err}.
+function findPatientPK_twoLevel(hist, c1, t1, c2, t2, Vpop) {
+  if (c1<=0||c2<=0) return {err:'Both concentrations must be positive.'};
+  if (Math.abs(t1-t2)<1e-6) return {err:'The two samples must be drawn at different times.'};
+  // order earlier (A) → later (B)
+  let tA=t1,cA=c1,tB=t2,cB=c2;
+  if (t1>t2){ tA=t2; cA=c2; tB=t1; cB=c1; }
+  const between   = hist.filter(d=>d.timeHr>tA && d.timeHr<=tB);
+  const priorDose = hist.some(d=>d.timeHr < tA - 1e-9);
+
+  // CASE 1 — no dose between: pure elimination. Solve k and Vd.
+  if (between.length===0) {
+    if (cA<=cB) return {err:'With no dose between the two samples, the later one must be lower (pure elimination). If a dose was given between them, add it to the dosing history.'};
+    const k=Math.log(cA/cB)/(tB-tA);
+    if (k<=0||k>2) return {err:`k = ${k.toFixed(5)} hr⁻¹ is out of the physiological range — re-check the levels and times.`};
+    const cV1=totalConc(hist,k,1.0,tA); // match Vd at the higher (post-dose) level
+    if (cV1<=0) return {err:'No dose contributes at the earlier (peak) sample time — check the dosing history and sample times.'};
+    const V=cV1/cA;
+    if (V<=0||V>500) return {err:`Vd = ${V.toFixed(1)} L is out of range — check the dose amount and sample timing.`};
+    return {k,V,hl:0.693/k,CL:V*k,vFixed:false,ic:null,method:'two levels, same interval — k and Vd individualized'};
+  }
+
+  // CASE 2 — a dose lies between the two samples.
+  if (priorDose) {
+    // Full numeric 2-D fit using the entered dosing history.
+    const Vof  = k => totalConc(hist,k,1.0,tB)/cB;       // V that matches the later level (∝ 1/V)
+    const resid= k => { const V=Vof(k); return isFinite(V)&&V>0 ? totalConc(hist,k,V,tA)-cA : NaN; };
+    const sol=bracketSolve(resid,0.005,2.0);
+    if (sol.err) return {err:'Could not fit both k and Vd to these two levels with the entered dosing history. Verify the levels, dose amounts/times, or switch to the trough→peak pattern if only one dose was given.'};
+    const k=sol.k, V=Vof(k);
+    if (k<=0||k>2||V<=0||V>500) return {err:`Fitted k = ${k.toFixed(4)} hr⁻¹ / Vd = ${V.toFixed(1)} L is out of range.`};
+    return {k,V,hl:0.693/k,CL:V*k,vFixed:false,ic:null,method:'two levels with a dose between — k and Vd individualized (superposition)'};
+  } else {
+    // Minimal history: anchor the earlier level as IC, fix Vd at population, solve k.
+    if (!Vpop||Vpop<=0) return {err:'Enter patient demographics (for a population Vd), or add the prior dosing history, to fit a trough→peak pair from a single dose.'};
+    const V=Vpop;
+    const betweenReff=between.map(d=>({...d,timeHr:d.timeHr-tA}));
+    const resid=k => cA*Math.exp(-k*(tB-tA)) + totalConc(betweenReff,k,V,tB-tA) - cB;
+    const sol=bracketSolve(resid,0.005,2.0);
+    if (sol.err) return {err:'Could not fit k from this trough→peak pair. The peak should exceed the decayed trough plus the dose contribution; confirm the dose between the samples is entered and times are correct.'};
+    const k=sol.k;
+    if (k<=0||k>2) return {err:`k = ${k.toFixed(5)} hr⁻¹ is out of range.`};
+    return {k,V,hl:0.693/k,CL:V*k,vFixed:true,ic:{c:cA,tHr:tA},
+            method:'trough → peak around one dose — earlier level as initial condition, Vd fixed (population)'};
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   STEADY-STATE METRICS
+   C_max  = end-of-infusion peak
+   C_peak = drawn peak, 0.5 hr after end of infusion (target reference)
+   C_trough = pre-dose trough
+════════════════════════════════════════════════════════ */
+function calcSteadyState(dose,interval,infDur,k,V) {
+  const R=dose/infDur, denom=1-Math.exp(-k*interval);
+  const C_max  = (R/(V*k))*(1-Math.exp(-k*infDur))/denom;       // end of infusion
+  const C_peak = C_max*Math.exp(-k*0.5);                         // 30 min post-infusion (drawn)
+  const C_trough=C_max*Math.exp(-k*(interval-infDur));           // just before next dose
+  const auc_interval=dose/(V*k);
+  const auc24=auc_interval*(24/interval);
+  const dosesTo90=Math.ceil(2.303/(k*interval));
+  return {C_max,C_peak,C_trough,auc_interval,auc24,dosesTo90};
+}
+
+// Design dose+interval for the active strategy's target peak (Cmax)/trough given patient k,V.
+function designRegimen(k,V) {
+  const s=getTargets(), infDur=DEFAULT_INF_DUR;
+  const peakTgt=(s.peakLo+s.peakHi)/2;  // target Cmax (end of infusion)
+  const troughTgt=Math.max(s.troughTarget,0.1);
+  // Interval: time for Cmax to decay to the target trough, plus the infusion time.
+  let tau = infDur + Math.log(peakTgt/troughTgt)/k;
+  let interval = nearestInterval(tau);
+  // Extended-interval strategies stay at their default interval unless renal function forces longer.
+  if (document.getElementById('strategy').value==='extended')
+    interval = Math.max(s.defInterval, nearestInterval(tau));
+  // Dose to hit the target Cmax (end of infusion) at steady state.
+  const R = peakTgt*V*k*(1-Math.exp(-k*interval)) / (1-Math.exp(-k*infDur));
+  const dose = roundDose(R*infDur);
+  return { dose, interval, peakTgt, troughTgt };
+}
+
+// Build the "reasonable regimens" comparison table for the active strategy.
+function buildRegimenTable(k,V) {
+  const s=getTargets(), infDur=DEFAULT_INF_DUR;
+  const peakTgt=(s.peakLo+s.peakHi)/2;
+  const candidates = STD_INTERVALS.filter(i => i >= s.defInterval-0.1);
+  const rows = candidates.slice(0,5).map(interval => {
+    const R = peakTgt*V*k*(1-Math.exp(-k*interval)) / (1-Math.exp(-k*infDur));
+    const dose = roundDose(R*infDur);
+    const ss = calcSteadyState(dose,interval,infDur,k,V);
+    const peakOk = ss.C_max>=s.peakLo && ss.C_max<=s.peakHi;
+    const troughOk = ss.C_trough<=s.troughMax;
+    const inRange = peakOk && troughOk;
+    return {interval,dose,ss,peakOk,troughOk,inRange};
+  });
+  const trs = rows.map(({interval,dose,ss,peakOk,troughOk})=>{
+    const bg = (peakOk&&troughOk)?'background:#e6f4ec;':(!troughOk?'background:#fde8e8;':'background:#fff8e1;');
+    const pkStyle = peakOk?'color:#1a5c30;font-weight:600;':'color:#8b4500;font-weight:600;';
+    const trStyle = troughOk?'':'color:#8b1a1a;font-weight:700;';
+    return `<tr style="${bg}">
+      <td>${dose} mg</td><td>${intervalLabel(interval)}</td>
+      <td style="${pkStyle}">${ss.C_max.toFixed(1)} ${peakOk?'✓':'⚠'}</td>
+      <td style="${trStyle}">${ss.C_trough.toFixed(2)} ${troughOk?'✓':'⚠'}</td>
+      <td>${ss.auc24.toFixed(0)}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="reg-table" style="margin-top:6px;font-size:0.75rem;">
+    <thead><tr><th>Dose</th><th>Interval</th><th>SS Peak C<sub>max</sub> (mg/L)</th><th>SS Trough (mg/L)</th><th>AUC₂₄</th></tr></thead>
+    <tbody>${trs}</tbody></table>
+  <div style="font-size:0.67rem;color:#7a8a9a;margin-top:4px;">
+    k = ${k.toFixed(4)} hr⁻¹ · Vd = ${V.toFixed(1)} L · CL = ${(V*k).toFixed(2)} L/hr · target peak (C<sub>max</sub>) ${s.peakLo}–${s.peakHi}, trough &lt;${s.troughMax} mg/L · ✓ = in target
+  </div>`;
+}
+
+/* ════════════════════════════════════════════════════════
+   REGIMEN ESTIMATOR (manual dose/interval evaluator)
+════════════════════════════════════════════════════════ */
+function estimateRegimen() {
+  const rDose=parseFloat(document.getElementById('regimenDose').value);
+  const rInt =parseFloat(document.getElementById('regimenInterval').value);
+  const out  =document.getElementById('regimenOutput');
+  if (!lastCalcResult||isNaN(rDose)||isNaN(rInt)) {
+    out.innerHTML='<div class="abox abox-info" style="font-size:0.76rem;margin-top:10px;">Select a dose and interval to estimate steady-state peak &amp; trough.</div>';
+    return;
+  }
+  const {k,V,mic}=lastCalcResult;
+  const s=getTargets(), infDur=DEFAULT_INF_DUR;
+  const ss=calcSteadyState(rDose,rInt,infDur,k,V);
+  const cmaxMic = mic>0 ? ss.C_max/mic : null;
+
+  const pkCol = (ss.C_max>=s.peakLo&&ss.C_max<=s.peakHi)?'rbox-green':(ss.C_max<s.peakLo?'rbox-yellow':'rbox-red');
+  const trCol = ss.C_trough<=s.troughMax?'rbox-green':'rbox-red';
+
+  const best=designRegimen(k,V);
+  const bestSS=calcSteadyState(best.dose,best.interval,infDur,k,V);
+  const bestOk = bestSS.C_max>=s.peakLo && bestSS.C_max<=s.peakHi && bestSS.C_trough<=s.troughMax;
+
+  out.innerHTML=`
+    <div class="abox ${bestOk?'abox-ok':'abox-warn'}" style="font-size:0.76rem;margin-top:10px;margin-bottom:8px;">
+      <strong>Suggested regimen for ${curDrug().name} (${s.label}):</strong> ${best.dose} mg ${intervalLabel(best.interval)}
+      &nbsp;·&nbsp; predicted SS C<sub>max</sub> <strong>${bestSS.C_max.toFixed(1)}</strong> / trough <strong>${bestSS.C_trough.toFixed(2)}</strong> mg/L
+      <span style="font-weight:400;color:#7a8a9a;">(targets: peak ${s.peakLo}–${s.peakHi}, trough &lt;${s.troughMax})</span>
+    </div>
+    <div class="ss-grid">
+      <div class="ss-box ${pkCol}">
+        <div class="rbox-lbl">SS Peak — C<sub>max</sub> (end of infusion)</div>
+        <div class="rbox-val" style="font-size:1.1rem;">${ss.C_max.toFixed(2)}<span class="rbox-unit"> mg/L</span></div>
+      </div>
+      <div class="ss-box ${trCol}">
+        <div class="rbox-lbl">SS Trough — C<sub>min</sub> (pre-dose)</div>
+        <div class="rbox-val" style="font-size:1.1rem;">${ss.C_trough.toFixed(2)}<span class="rbox-unit"> mg/L</span></div>
+      </div>
+      <div class="ss-box rbox-blue">
+        <div class="rbox-lbl">C<sub>max</sub>/MIC (MIC=${mic})</div>
+        <div class="rbox-val" style="font-size:1.1rem;">${cmaxMic!==null?cmaxMic.toFixed(1):'—'}</div>
+        <div class="rbox-note">target ≥ ${curDrug().peakMicMin}</div>
+      </div>
+      <div class="ss-box rbox-blue">
+        <div class="rbox-lbl">Doses to 90% SS</div>
+        <div class="rbox-val" style="font-size:1.1rem;">${ss.dosesTo90}</div>
+        <div class="rbox-note">≈ ${(ss.dosesTo90*rInt/24).toFixed(1)} days · AUC₂₄ = ${ss.auc24.toFixed(0)}</div>
+      </div>
+    </div>
+    <div style="font-size:0.70rem;color:#7a8a9a;margin-top:8px;">
+      k = ${k.toFixed(4)} hr⁻¹ · Vd = ${V.toFixed(1)} L · CL = ${(V*k).toFixed(2)} L/hr · infusion ${infDur*60} min · peak = C<sub>max</sub> at end of infusion, trough = pre-dose C<sub>min</sub>
+    </div>
+    <div style="margin-top:12px;border-top:1px solid #e4ecf4;padding-top:10px;">
+      <div style="font-size:0.78rem;font-weight:700;color:#1a3a5c;margin-bottom:4px;">All reasonable regimens</div>
+      ${buildRegimenTable(k,V)}
+    </div>`;
+}
+
+/* ════════════════════════════════════════════════════════
+   MAIN CALCULATE
+════════════════════════════════════════════════════════ */
+function runCalc() {
+  document.getElementById('alertsArea').innerHTML='';
+  let alerts='';
+  let k,V,pkSource;
+  const mK=parseFloat(document.getElementById('manualK').value),
+        mV=parseFloat(document.getElementById('manualV').value);
+
+  if (!isNaN(mK)&&mK>0&&!isNaN(mV)&&mV>0) {
+    k=mK; V=mV; pkSource='Manual override (k + Vd)';
+  } else {
+    const pop=getPopPK();
+    if (!pop) { alert('Enter patient demographics or use PK override.'); return; }
+    k=pop.k; V=pop.V;
+    pkSource=`Population (CrCl ${pop.crcl.toFixed(1)} mL/min · Sawchuk–Zaske · Vd ${curDrug().vdPerKg}×wt)`;
+    if (pop.scrFloored) alerts+=`<div class="abox abox-warn">⚠ SCr &lt; 0.8 mg/dL in an elderly patient — CrCl calculated using SCr = 0.8 mg/dL.</div>`;
+    if (!isNaN(mK)&&mK>0) { k=mK; pkSource='k override + population Vd'; }
+    if (!isNaN(mV)&&mV>0) { V=mV; pkSource='Population k + Vd override'; }
+  }
+
+  const hr=getActiveHistory();
+  if (hr.err) { alert(hr.err); return; }
+  const hist=hr.hist, refDtStr=hr.refDtStr;
+
+  lastLevelIC=null;
+  const mKSet = !isNaN(mK) && mK > 0;
+  const mVSet = !isNaN(mV) && mV > 0;
+  const fullOverride = mKSet && mVSet;
+
+  // Level handling
+  const l1c=parseFloat(document.getElementById('l1c').value),
+        l1dt=document.getElementById('l1dt').value;
+  const hasL1 = !isNaN(l1c) && l1c>0 && l1dt;
+
+  let vIndividualized=false, solvedFromLevels=false, peakDrawGap=null;
+  if (!fullOverride && hasL1) {
+    const t1=dtToHours(l1dt,refDtStr);
+    if (currentLevelCount===2) {
+      const l2c=parseFloat(document.getElementById('l2c').value),
+            l2dt=document.getElementById('l2dt').value;
+      if (isNaN(l2c)||l2c<=0||!l2dt) { alert('Enter the second level concentration and draw date/time (or switch to 1 Level).'); return; }
+      const t2=dtToHours(l2dt,refDtStr);
+      const res=findPatientPK_twoLevel(hist,l1c,t1,l2c,t2,V);
+      if (res.err) {
+        alerts+=`<div class="abox abox-err"><strong>Solver error:</strong> ${res.err}</div>`;
+      } else {
+        k=res.k; V=res.V; lastLevelIC=res.ic||null;
+        pkSource=`Patient-specific — ${res.method}`;
+        solvedFromLevels=true; vIndividualized=!res.vFixed;
+        // peak draw timing: gap between the higher (peak) level and the end of its preceding infusion
+        const tPeakLvl = l1c>=l2c ? t1 : t2;
+        const prior = hist.filter(d=>d.timeHr<=tPeakLvl).sort((a,b)=>b.timeHr-a.timeHr)[0];
+        if (prior) peakDrawGap = tPeakLvl - (prior.timeHr + prior.infDur);
+        if (res.vFixed) alerts+=`<div class="abox abox-info">Vd held at the population estimate (${V.toFixed(1)} L). For full k <em>and</em> Vd individualization from a trough→peak pair, add the prior dosing history so the trough is reproduced by the model.</div>`;
+      }
+    } else {
+      const res=findPatientPK_oneLevel(hist,l1c,t1,V);
+      if (res.err) {
+        alerts+=`<div class="abox abox-err"><strong>Solver error:</strong> ${res.err}</div>`;
+      } else {
+        k=res.k; lastLevelIC=null; // fitted k reproduces the level via full superposition
+        pkSource=`Patient-specific k — 1 level · Vd fixed at ${V.toFixed(1)} L (population)`;
+        solvedFromLevels=true; vIndividualized=false;
+      }
+    }
+  } else if (!fullOverride && !hasL1) {
+    alerts+=`<div class="abox abox-info">No measured levels entered — showing prediction from ${mKSet||mVSet?'override':'population'} PK.</div>`;
+  }
+
+  // Plausibility checks on the fitted PK (warn, never block) — helps catch
+  // sample-timing / data-entry inconsistencies that produce implausible fits.
+  if (solvedFromLevels) {
+    const pop=getPopPK();
+    if (vIndividualized && pop) {
+      const vPerKg=V/pop.dw;
+      if (vPerKg<0.10 || vPerKg>0.55)
+        alerts+=`<div class="abox abox-warn">⚠ Fitted Vd = ${V.toFixed(1)} L (${vPerKg.toFixed(2)} L/kg) is outside the usual aminoglycoside range of ~0.2–0.3 L/kg (≈ ${(0.2*pop.dw).toFixed(0)}–${(0.3*pop.dw).toFixed(0)} L for this patient). This typically signals an inconsistency in the sample concentrations or draw times — please re-check them.</div>`;
+    }
+    if (pop && (k/pop.k>1.8 || k/pop.k<0.55))
+      alerts+=`<div class="abox abox-warn">⚠ Fitted t½ = ${(0.693/k).toFixed(1)} h differs markedly from the population estimate (t½ ≈ ${pop.hl.toFixed(1)} h). A peak drawn well after the infusion, or a mistimed trough, can distort the calculated elimination rate — verify the draw times.</div>`;
+    if (peakDrawGap!==null && peakDrawGap>1.05)
+      alerts+=`<div class="abox abox-info">The "peak" level was drawn about ${peakDrawGap.toFixed(1)} h after the end of its infusion. That's fine — sample timing need not be exact. The reported Peak is the true C<sub>max</sub> at the end of infusion, extrapolated up from your level using k<sub>e</sub> (here ×e^(k×${peakDrawGap.toFixed(1)}h) ≈ ${Math.exp(k*peakDrawGap).toFixed(2)}×). The further from the infusion a level is drawn, the more any timing error is amplified by this extrapolation.</div>`;
+  }
+
+  let queryTimeHr=null;
+  if (document.getElementById('chkForwardPred').checked) {
+    const qDt=document.getElementById('queryDtB').value;
+    if (!qDt) { alert('Enter a forward prediction date and time.'); return; }
+    queryTimeHr=dtToHours(qDt,refDtStr);
+  }
+  const mic=parseFloat(document.getElementById('mic').value)||1;
+
+  if (alerts) document.getElementById('alertsArea').innerHTML=alerts;
+
+  // PK summary
+  document.getElementById('pkSummary').innerHTML =
+    `<strong>PK source:</strong> ${pkSource} &nbsp;·&nbsp;
+     <strong>k:</strong> ${k.toFixed(4)} hr⁻¹ &nbsp;·&nbsp;
+     <strong>Vd:</strong> ${V.toFixed(1)} L &nbsp;·&nbsp;
+     <strong>t½:</strong> ${(0.693/k).toFixed(1)} hr &nbsp;·&nbsp;
+     <strong>CL:</strong> ${(V*k).toFixed(2)} L/hr`;
+
+  // Auto-select a regimen for the estimator
+  const best=designRegimen(k,V);
+  document.getElementById('regimenInterval').value=String(best.interval);
+  document.getElementById('regimenDose').value=String(best.dose);
+
+  lastCalcResult={k,V,mic};
+  lastRun={hist, refDtStr, ic:lastLevelIC};
+  document.getElementById('resultsCard').style.display='block';
+  estimateRegimen();
+
+  // Results grid (current observed/predicted peak & trough for the last dose interval)
+  buildResultsGrid(hist,k,V,refDtStr,lastLevelIC,mic);
+
+  // Chart with projected regimen
+  const lastDoseT=hist[hist.length-1].timeHr;
+  const futureDoses=Array.from({length:5},(_,i)=>({
+    timeHr:lastDoseT+(i+1)*best.interval, amount:best.dose, infDur:DEFAULT_INF_DUR
+  }));
+  const chartQtHr = queryTimeHr!==null ? queryTimeHr : lastDoseT + DEFAULT_INF_DUR + 2;
+  buildChart(hist,k,V,chartQtHr,getLevelMarkers(refDtStr),refDtStr,lastLevelIC,futureDoses);
+  buildTable(hist,k,V,chartQtHr,refDtStr,lastLevelIC);
+  document.getElementById('resultsCard').scrollIntoView({behavior:'smooth'});
+}
+
+function buildResultsGrid(hist,k,V,refDtStr,ic,mic) {
+  const s=getTargets();
+  const last=hist[hist.length-1];
+  // Infer the actual dosing interval from the history (fall back to strategy default).
+  const intv = hist.length>=2 ? (last.timeHr - hist[hist.length-2].timeHr) : curStrategy().defInterval;
+  // True Cmax for this regimen = concentration at the end of the most recent infusion.
+  const cmax = totalConcWithIC(hist,k,V,last.timeHr+last.infDur,ic);
+  // True trough = concentration immediately before the next scheduled dose.
+  const trough = totalConcWithIC(hist,k,V,last.timeHr+intv-1e-3,ic);
+  const cmaxMic = mic>0 ? cmax/mic : null;
+  const pkCol=(cmax>=s.peakLo&&cmax<=s.peakHi)?'rbox-green':(cmax<s.peakLo?'rbox-yellow':'rbox-red');
+  const trCol=trough<=s.troughMax?'rbox-green':'rbox-red';
+  document.getElementById('resultsGrid').innerHTML=`
+    <div class="rbox ${pkCol}">
+      <div class="rbox-lbl">Peak — C<sub>max</sub> (end of infusion)</div>
+      <div class="rbox-val">${cmax.toFixed(1)}<span class="rbox-unit"> mg/L</span></div>
+      <div class="rbox-note">model-derived from k<sub>e</sub> · target ${s.peakLo}–${s.peakHi}</div>
+    </div>
+    <div class="rbox ${trCol}">
+      <div class="rbox-lbl">Trough — C<sub>min</sub> (pre-dose)</div>
+      <div class="rbox-val">${trough.toFixed(2)}<span class="rbox-unit"> mg/L</span></div>
+      <div class="rbox-note">at ${intervalLabel(intv)} · target &lt;${s.troughMax}</div>
+    </div>
+    <div class="rbox rbox-blue">
+      <div class="rbox-lbl">C<sub>max</sub>/MIC (MIC=${mic})</div>
+      <div class="rbox-val">${cmaxMic!==null?cmaxMic.toFixed(1):'—'}</div>
+      <div class="rbox-note">target ≥ ${curDrug().peakMicMin}</div>
+    </div>`;
+}
+
+function getLevelMarkers(refDtStr) {
+  const markers=[];
+  const l1c=parseFloat(document.getElementById('l1c').value),
+        l1dt=document.getElementById('l1dt').value;
+  if (!isNaN(l1c)&&l1c>0&&l1dt) markers.push({t:dtToHours(l1dt,refDtStr),c:l1c});
+  if (currentLevelCount===2) {
+    const l2c=parseFloat(document.getElementById('l2c').value),
+          l2dt=document.getElementById('l2dt').value;
+    if (!isNaN(l2c)&&l2c>0&&l2dt) markers.push({t:dtToHours(l2dt,refDtStr),c:l2c});
+  }
+  return markers;
+}
+
+/* ════════════════════════════════════════════════════════
+   CHART
+════════════════════════════════════════════════════════ */
+function buildChart(hist,k,V,queryTHr,levels,refDtStr,ic=null,futureDoses=null) {
+  const baseMs=new Date(refDtStr).getTime();
+  const toMs=hr=>baseMs+hr*3600000;
+  const fmtMs=ms=>{const d=new Date(ms);
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+
+           d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false});};
+
+  const chartStart = ic ? Math.min(0, ic.tHr) : 0;
+  const showQuery=document.getElementById('chkForwardPred').checked;
+  const futureTail=(futureDoses&&futureDoses.length)
+    ? [futureDoses[futureDoses.length-1].timeHr+futureDoses[futureDoses.length-1].infDur] : [];
+  const maxT=Math.max(...hist.map(d=>d.timeHr+d.infDur),...(showQuery?[queryTHr]:[]),...levels.map(l=>l.t),...futureTail)+6;
+
+  const lineData=[];
+  for (let t=chartStart;t<=maxT;t+=0.1)
+    lineData.push({x:+t.toFixed(2),y:Math.max(0,totalConcWithIC(hist,k,V,+t.toFixed(2),ic))});
+
+  let futureLineData=null;
+  if (futureDoses&&futureDoses.length) {
+    const combined=[...hist,...futureDoses];
+    const handoffT=hist[hist.length-1].timeHr;
+    const futEnd=futureDoses[futureDoses.length-1].timeHr+futureDoses[futureDoses.length-1].infDur+6;
+    futureLineData=[];
+    for (let t=handoffT;t<=futEnd;t+=0.1)
+      futureLineData.push({x:+t.toFixed(2),y:Math.max(0,totalConcWithIC(combined,k,V,+t.toFixed(2),ic))});
+  }
+
+  const tickPos=[...new Set([
+    ...(ic?[ic.tHr]:[]),
+    ...hist.map(d=>d.timeHr),
+    ...(showQuery?[queryTHr]:[]),
+    ...levels.map(l=>l.t),
+    ...(futureLineData?futureDoses.map(d=>d.timeHr):[])
+  ])].sort((a,b)=>a-b);
+
+  const datasets=[
+    {type:'line',label:'Predicted (mg/L)',data:lineData,
+     borderColor:'#1a3a5c',borderWidth:2,pointRadius:0,
+     fill:{target:'origin',above:'rgba(26,58,92,0.06)'},tension:0.1},
+    {type:'scatter',label:'Dose given',data:hist.map(d=>({x:d.timeHr,y:0})),
+     pointStyle:'triangle',pointRadius:8,backgroundColor:'rgba(58,123,213,0.75)'},
+    {type:'scatter',label:'Measured levels',data:levels.map(l=>({x:l.t,y:l.c})),
+     pointStyle:'circle',pointRadius:8,backgroundColor:'rgba(22,163,74,0.85)',
+     borderColor:'#fff',borderWidth:2}
+  ];
+  if (showQuery) {
+    datasets.splice(2,0,{type:'scatter',label:'Query',
+      data:[{x:queryTHr,y:totalConcWithIC(hist,k,V,queryTHr,ic)}],
+      pointStyle:'crossRot',pointRadius:10,backgroundColor:'rgba(210,40,40,0.85)',
+      borderColor:'rgba(210,40,40,0.85)',borderWidth:2});
+  }
+  if (futureLineData) {
+    datasets.push({type:'line',label:'Proposed regimen',data:futureLineData,
+      borderColor:'rgba(210,100,20,0.85)',borderWidth:2,borderDash:[7,4],
+      pointRadius:0,fill:false,tension:0.1});
+    datasets.push({type:'scatter',label:'Proposed dose',data:futureDoses.map(d=>({x:d.timeHr,y:0})),
+      pointStyle:'triangle',pointRadius:8,backgroundColor:'rgba(210,100,20,0.75)'});
+  }
+
+  const ctx=document.getElementById('pkChart').getContext('2d');
+  if (pkChartObj) pkChartObj.destroy();
+  pkChartObj=new Chart(ctx,{
+    data:{datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{type:'linear',title:{display:true,text:'Date / Time',font:{size:11}},
+           afterBuildTicks:axis=>{axis.ticks=tickPos.map(v=>({value:v}));},
+           ticks:{maxRotation:45,minRotation:30,font:{size:9},
+             callback:val=>{const d=new Date(toMs(val));
+               return [d.toLocaleDateString(undefined,{month:'short',day:'numeric'}),
+                       d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})];}}},
+        y:{min:0,title:{display:true,text:'Concentration (mg/L)',font:{size:11}},ticks:{font:{size:10}}}
+      },
+      plugins:{
+        legend:{labels:{font:{size:10}}},
+        tooltip:{callbacks:{
+          title:items=>fmtMs(toMs(items[0].parsed.x)),
+          label:c=>`${c.dataset.label}: ${(c.parsed.y||0).toFixed(2)} mg/L`
+        }}
+      }
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════
+   TABLE
+════════════════════════════════════════════════════════ */
+function buildTable(hist,k,V,queryTHr,refDtStr,ic=null) {
+  const pts=[];
+  hist.forEach((d,i)=>{
+    pts.push({lbl:`Dose ${i+1} C\u2098\u2090\u2093 (end of infusion)`,t:d.timeHr+d.infDur});
+    const nx=hist[i+1];
+    if (nx) pts.push({lbl:`Pre-dose ${i+2} trough`,t:nx.timeHr-0.05});
+  });
+  if (document.getElementById('chkForwardPred').checked) pts.push({lbl:`Query`,t:queryTHr});
+  const rows=pts.filter(p=>p.t>=(ic?ic.tHr:0)).sort((a,b)=>a.t-b.t).map(p=>{
+    const c=totalConcWithIC(hist,k,V,p.t,ic);
+    return `<tr><td>${p.lbl}</td><td>${fmtDt(addHrs(refDtStr,p.t))}</td>
+            <td><strong>${c.toFixed(2)}</strong></td></tr>`;
+  }).join('');
+  document.getElementById('tableWrap').innerHTML=`
+    <table class="conc-table" style="margin-top:12px;">
+      <thead><tr><th>Time Point</th><th>Date &amp; Time</th><th>Conc (mg/L)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ════════════════════════════════════════════════════════
+   CLEAR ALL
+════════════════════════════════════════════════════════ */
+function clearAll() {
+  ['age','tbw','height','scr','manualK','manualV','sp_l1c','sp_l2c','l1c','l2c','regimenDose'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('sex').value='male';
+  document.getElementById('scrUnit').value='mgdl';
+  document.getElementById('mic').value='1';
+  document.getElementById('drug').value='gentamicin';
+  populateStrategyOptions();
+  document.getElementById('strategy').value='conventional'; // force default strategy (don't preserve prior)
+  document.getElementById('pkBar').style.display='none';
+  document.getElementById('suggestedDoseBar').style.display='none';
+
+  document.getElementById('chkSamePhase').checked=false;
+  document.getElementById('samePhaseSect').style.display='none';
+  document.getElementById('overrideBody').style.display='none';
+  document.querySelector('[onclick="toggleSection(\'overrideBody\',this)"]').textContent='▸ show';
+  document.getElementById('spResultBox').style.display='none';
+
+  doses=[]; nextId=0;
+  document.getElementById('doseRows').innerHTML='';
+  addDose(120, nowDt(8));
+
+  document.getElementById('chkForwardPred').checked=false;
+  document.getElementById('forwardPredSect').style.display='none';
+  document.getElementById('regimenInterval').value='';
+  document.getElementById('samplePattern').value='peakTrough';
+  setLevelCount(2);
+
+  document.getElementById('resultsCard').style.display='none';
+  if (pkChartObj) { pkChartObj.destroy(); pkChartObj=null; }
+  lastCalcResult=null; lastRun=null; lastLevelIC=null;
+  document.getElementById('regimenOutput').innerHTML=
+    '<div class="abox abox-info" style="font-size:0.76rem;margin-top:10px;">Select a dose and interval to estimate steady-state peak &amp; trough.</div>';
+
+  const today=nowDt(8);
+  ['queryDtB','l1dt','l2dt','sp_l1dt','sp_l2dt'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value=today;
+  });
+  onStrategyChange();
+}
+
+/* ════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded',()=>{
+  populateStrategyOptions();
+  addDose(120, nowDt(8));
+  ['age','sex','tbw','height','scr','scrUnit','mic'].forEach(id => {
+    const el=document.getElementById(id);
+    el.addEventListener('input', updatePKBar);
+    el.addEventListener('change', updatePKBar);
+  });
+  const today=nowDt(8);
+  ['queryDtB','l1dt','l2dt','sp_l1dt','sp_l2dt'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value=today;
+  });
+  setLevelCount(2);
+  onStrategyChange();
+});
+</script>
+</body></html>
